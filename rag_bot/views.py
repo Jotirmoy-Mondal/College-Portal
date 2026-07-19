@@ -25,5 +25,5 @@ def chat_with_bot(request):
         "source": ai_response["source"]
     })
     # This function serves your frontend HTML page
-    def home(request):
+def home(request):
     return render(request, 'index.html')

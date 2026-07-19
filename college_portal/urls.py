@@ -17,10 +17,17 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
-from django.urls import path
+from rag_bot.views import home
+# this Import your new home function
+   
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # This links our app. The final URL will be: /api/chat/
-    path('api/', include('rag_bot.urls')), 
+    # This links our app. #The final URL will be: /api/chat/
+
+    path('api/', include('rag_bot.urls')),
+
+    # This serves your index.html when you visit the main base URL!
+    
+    path('', home, name='home'),
 ]
