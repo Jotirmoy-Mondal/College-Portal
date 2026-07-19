@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Student Portal</title>
+    <!-- Importing Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth sliding animation for the chatbox */
+        .chat-slide {
+            transition: transform 0.3s ease-in-out;
+        }
+        .chat-hidden {
+            transform: translateY(150%);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans h-screen flex flex-col relative overflow-hidden">
+
+    <!-- 1. DUMMY COLLEGE PORTAL BACKGROUND -->
+    <nav class="bg-blue-800 text-white p-4 shadow-md flex justify-between items-center">
+        <h1 class="text-2xl font-bold">🎓 University Portal</h1>
+        <ul class="flex space-x-4">
+            <li class="hover:underline cursor-pointer">Dashboard</li>
+            <li class="hover:underline cursor-pointer">Courses</li>
+            <li class="hover:underline cursor-pointer">Grades</li>
+        </ul>
+    </nav>
+    <main class="p-8 flex-grow">
+        <h2 class="text-3xl font-semibold mb-4">Welcome back, Student!</h2>
+        <div class="bg-white p-6 rounded-lg shadow-md max-w-2xl">
+            <h3 class="text-xl font-bold mb-2">Announcements</h3>
+            <p class="text-gray-700">Registration for the Fall Semester opens next week. Please check your syllabus requirements.</p>
+        </div>
+    </main>
+
+    <!-- 2. THE CHATBOX TOGGLE BUTTON -->
+    <button id="toggle-chat-btn" class="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-2xl transition transform hover:scale-110 z-50">
+        💬 Ask AI
+    </button>
+
+    <!-- 3. THE SLIDING CHATBOX -->
+    <div id="chat-container" class="chat-slide chat-hidden absolute bottom-24 right-6 w-80 md:w-96 bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col z-50" style="height: 500px;">
+        
+        <!-- Chat Header -->
+        <div class="bg-blue-800 text-white p-4 rounded-t-xl flex justify-between items-center shadow-sm">
+            <h3 class="font-bold">Portal Assistant</h3>
+            <button id="close-chat-btn" class="text-gray-200 hover:text-white font-bold">&times;</button>
+        </div>
+
+        <!-- Chat Messages Window -->
+        <div id="chat-window" class="flex-grow p-4 overflow-y-auto bg-gray-50 flex flex-col space-y-3">
+            <div class="ai-msg bg-gray-200 text-gray-800 self-start p-3 rounded-lg rounded-tl-none max-w-[85%] shadow-sm">
+                Hi! I am the campus AI. Ask me anything about the documents uploaded to the portal!
+            </div>
+        </div>
+
+        <!-- Chat Input Area -->
+        <div class="p-3 border-t border-gray-200 bg-white rounded-b-xl flex gap-2">
+            <input type="text" id="chat-input" class="flex-grow border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ask about a syllabus...">
+            <button id="send-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                Send
+            </button>
+        </div>
+    </div>
+
+    <!-- 4. THE JAVASCRIPT (UI Logic & Django Connection) -->
+    <script>
+        // UI Elements for sliding the chatbox open and closed
+        const chatContainer = document.getElementById('chat-container');
+        const toggleBtn = document.getElementById('toggle-chat-btn');
+        const closeBtn = document.getElementById('close-chat-btn');
+
+        // Toggle Chat Visibility
+        toggleBtn.addEventListener('click', () => {
+            chatContainer.classList.toggle('chat-hidden');
+        });
+        closeBtn.addEventListener('click', () => {
+            chatContainer.classList.add('chat-hidden');
+        });
+
+        // Backend Connection Elements
+        const chatWindow = document.getElementById('chat-window'); 
+        const chatInput = document.getElementById('chat-input');
+        const sendButton = document.getElementById('send-btn');
+
+        // The function that talks to your Django Backend
+        async function sendMessage() {
+            const userText = chatInput.value.trim();
+            if (userText === "") return;
+
+            // Show user's message
+            chatWindow.innerHTML += `
+                <div class="user-msg bg-blue-600 text-white self-end p-3 rounded-lg rounded-tr-none max-w-[85%] shadow-sm">
+                    ${userText}
+                </div>`;
+            chatInput.value = '';
+            
+            // Scroll to bottom
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            // Show temporary "Thinking..." message
+            const thinkingId = "thinking-" + Date.now();
+            chatWindow.innerHTML += `
+                <div id="${thinkingId}" class="ai-msg bg-gray-200 text-gray-500 self-start p-3 rounded-lg rounded-tl-none text-sm shadow-sm animate-pulse">
+                    Thinking...
+                </div>`;
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            try {
+                // Send the message to your Django API
+                const response = await fetch('http://127.0.0.1:8000/api/chat/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: userText }) 
+                });
+
+                const data = await response.json();
+                
+                // Remove "Thinking..." message
+                document.getElementById(thinkingId).remove();
+
+                // Show AI's answer
+                if (data.reply) {
+                    let aiMessageHtml = `
+                        <div class="ai-msg bg-green-100 text-gray-800 self-start p-3 rounded-lg rounded-tl-none max-w-[85%] shadow-sm border border-green-200">
+                            ${data.reply}`;
+                    
+                    if (data.source) {
+                        aiMessageHtml += `<hr class="my-2 border-green-300"><div style="font-size: 0.75rem; color: #4b5563;">Source: ${data.source.title}</div>`;
+                    }
+                    aiMessageHtml += `</div>`;
+                    
+                    chatWindow.innerHTML += aiMessageHtml;
+                } else {
+                    chatWindow.innerHTML += `<div class="ai-msg bg-red-100 text-red-800 self-start p-3 rounded-lg max-w-[85%]">AI Error: No response.</div>`;
+                }
+            } catch (error) {
+                document.getElementById(thinkingId).remove();
+                chatWindow.innerHTML += `<div class="ai-msg bg-red-100 text-red-800 self-start p-3 rounded-lg max-w-[85%]">Connection Error. Is Django running?</div>`;
+                console.error("Backend error:", error);
+            }
+            
+            // Scroll to bottom after AI replies
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        // Trigger send on click or Enter key
+        sendButton.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>
